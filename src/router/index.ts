@@ -7,12 +7,12 @@ Vue.use(VueRouter)
 
 const routes: Array<RouteConfig> = [
   {
-    path: '/',
+    path: '/landing',
     name: 'landing',
     component: landing
   },
   {
-    path: '/project',
+    path: '/',
     name: 'project',
     component: campaign
   }

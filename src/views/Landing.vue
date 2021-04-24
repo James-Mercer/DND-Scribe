@@ -1,5 +1,5 @@
 <template>
-  <app>
+  <v-app>
     <v-main>
       <v-sheet>
         <v-card>
@@ -19,7 +19,7 @@
         </v-card>
       </v-sheet>
     </v-main>
-  </app>
+  </v-app>
 </template>
 
 <script>
