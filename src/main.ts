@@ -1,14 +1,15 @@
 import Vue from 'vue'
+import Vuex, { StoreOptions } from 'vuex'
 import App from './App.vue'
 import './registerServiceWorker'
-import store from './store'
+import storeConfig from './store/index'
 import vuetify from './plugins/vuetify'
 import router from './router'
 
 Vue.config.productionTip = false
-
-new Vue({
-  store,
+const store = new Vuex.Store(storeConfig as StoreOptions<any>)
+let app = new Vue({
+  ,
   vuetify,
   router,
   render: h => h(App)
