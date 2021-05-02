@@ -38,14 +38,7 @@
 
 <script lang='ts'>
 import { Vue, Component } from 'vue-property-decorator'
-import {
-  GET_CAMPAIGN,
-  GET_TABS,
-  GET_CURRENT_TAB_INDEX,
-  SET_CURRENT_TAB_INDEX,
-  REMOVE_TAB_BY_INDEX
-} from '@/store/operation-types'
-import { State, Getter, Mutation } from 'vuex-class'
+import { Getter, Action } from 'vuex-class'
 import SessionEditor from './SessionEditor.vue'
 import PCEditor from './PCEditor.vue'
 import NPCEditor from './NPCEditor.vue'
@@ -64,23 +57,23 @@ export default class EditorContainer extends Vue {
   contextMenuData: PromptData = new PromptData()
   menuItems: Array<string> = ['Close all but this', 'Close all']
 
-  @Getter(GET_CAMPAIGN) getCampaign!: Campaign
-  @Getter(GET_TABS) getTabs!: Array<string>
-  @Getter(GET_CURRENT_TAB_INDEX) getCurrentTabIndex!: number
-  @Mutation(SET_CURRENT_TAB_INDEX) setCurrentTabIndex!: (index: number) => void
-  @Mutation(REMOVE_TAB_BY_INDEX) removeTab!: (index: number) => void
+  @Getter('getOpenTabs') getTabs!: Array<string>
+  @Getter('getTabIndex') getCurrentTabIndex!: number
+  @Action('findObject') findObject!: (id: string) => ScribeObject | undefined
+  @Action('setCurrentTabIndex') setCurrentTabIndex!: (index: number) => void
+  @Action('removeTab') removeTab!: (index: number) => void
 
   get currentOpenTabIndex (): number { return this.getCurrentTabIndex }
   set currentOpenTabIndex (newVal: number) { this.setCurrentTabIndex(newVal) }
 
   getTabTitle (id: string): string {
-    const obj: ScribeObject | undefined = this.getCampaign.findObject(id)
+    const obj: ScribeObject | undefined = this.findObject(id)
     return obj ? obj.name : 'Unknown Object'
   }
 
   get getTabObjectType (): string {
     const id: string = this.getTabs[this.currentOpenTabIndex]
-    const obj: ScribeObject | undefined = this.getCampaign.findObject(id)
+    const obj: ScribeObject | undefined = this.findObject(id)
     return obj ? obj.type : ScribeObject.typeName
   }
 

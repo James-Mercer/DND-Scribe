@@ -3,5 +3,5 @@ export const iconMap = Object.freeze({
   SESSION: 'mdi-book-open-variant',
   PC: 'mdi-account-circle',
   NPC: 'mdi-account-circle-outline',
-  PLACE: 'mdi-map-marker',
+  PLACE: 'mdi-map-marker'
 })

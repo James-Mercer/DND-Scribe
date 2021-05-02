@@ -1,4 +1,4 @@
-import { TouchBarScrubber } from "electron"
+import { TouchBarScrubber } from 'electron'
 
 export default class PopupPromptInfo {
   private x: number
@@ -8,7 +8,7 @@ export default class PopupPromptInfo {
   private targetID: string
   private targetType: string
 
-  constructor() {
+  constructor () {
     this.x = 0
     this.y = 0
     this.visible = false
@@ -16,22 +16,22 @@ export default class PopupPromptInfo {
     this.targetType = ''
   }
 
-  getX(): number { return this.x }
-  getY(): number { return this.y }
-  getVisible(): boolean { return this.visible }
-  getTargetID(): string { return this.targetID }
-  getTargetType(): string { return this.targetType }
+  getX (): number { return this.x }
+  getY (): number { return this.y }
+  getVisible (): boolean { return this.visible }
+  getTargetID (): string { return this.targetID }
+  getTargetType (): string { return this.targetType }
 
-  setX(x: number){ this.x = x }
-  setY(y: number) { this.y = y }
-  setPosition(x: number, y: number) {
-    this.x = x 
-    this.y = y   
+  setX (x: number) { this.x = x }
+  setY (y: number) { this.y = y }
+  setPosition (x: number, y: number) {
+    this.x = x
+    this.y = y
   }
-  setVisible(visible: boolean) { this.visible = visible }
-  setTargetData(id: string, type: string) {
+
+  setVisible (visible: boolean) { this.visible = visible }
+  setTargetData (id: string, type: string) {
     this.targetID = id
     this.targetType = type
   }
-
 }

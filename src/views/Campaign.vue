@@ -19,13 +19,11 @@
 import { Vue, Component } from 'vue-property-decorator'
 import TreePanel from '@/components/TreePanel.vue'
 import EditorContainer from '@/components/EditorContainer.vue'
-
-import { ADD_OBJECT, GET_CAMPAIGN } from '@/store/operation-types'
 import { iconMap } from '@/types/iconMap'
 import Campaign from '@/types/Campaign'
 import ScribeObject from '@/types/ScribeObject'
 import Session from '@/types/Session'
-import { Getter, Mutation } from 'vuex-class'
+import { Getter, Action, Mutation } from 'vuex-class'
 import PlayerCharacter from '@/types/PlayerCharacter'
 import NonPlayerCharacter from '@/types/NonPlayerCharacter'
 
@@ -38,8 +36,7 @@ import NonPlayerCharacter from '@/types/NonPlayerCharacter'
 export default class CampaignView extends Vue {
   iconMap: any = iconMap
 
-  @Getter(GET_CAMPAIGN) getCampaign!: Campaign
-  @Mutation(ADD_OBJECT) addObject!: (newObject: ScribeObject) => void
+  @Mutation('addObject') addObject !: (newObject: ScribeObject) => void
 
   newItem (type: number): void {
     console.log(type)

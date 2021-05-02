@@ -37,8 +37,7 @@
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
-import { Getter, Mutation } from 'vuex-class'
-import { GET_CAMPAIGN, ADD_TAB } from '@/store/operation-types'
+import { Getter, Action, Mutation } from 'vuex-class'
 import Campaign from '@/types/Campaign'
 import ScribeObject from '@/types/ScribeObject'
 import Quill, { RangeStatic, StringMap } from 'quill'
@@ -88,16 +87,12 @@ export default class ScribeTextEditor extends Vue {
     console.log(this.promptData)
   }
 
-  @Getter(GET_CAMPAIGN) campaign!: Campaign
-  @Mutation(ADD_TAB) addOrFocusTab!: (itemID: string, focus: boolean) => void
+  @Getter('getObjects') objectUuidMap!: Map<string, ScribeObject>
+  @Mutation('addTab') addTab !: (itemID: string, index: number, focus: boolean) => void
 
   @Watch('autoCompleteSearch')
   onSearchChange (val: string, oldVal: string) {
     this.querySelection(val)
-  }
-
-  get scribeItems (): Map<string, ScribeObject> {
-    return this.campaign.objectUuidMap
   }
 
   get promptX (): number {
@@ -149,7 +144,7 @@ export default class ScribeTextEditor extends Vue {
     this.autoCompleteLoading = true
     setTimeout(() => {
       const filteredItems: Array<ScribeObject> = []
-      this.scribeItems.forEach(e => {
+      this.objectUuidMap.forEach(e => {
         if (e.name.toLowerCase().indexOf((filterTerm || '').toLowerCase()) > -1) {
           filteredItems.push(e)
         }
@@ -188,7 +183,7 @@ export default class ScribeTextEditor extends Vue {
 
   openScribeLink () {
     console.log(`open item ${this.promptItemID}`)
-    this.addOrFocusTab(this.promptItemID, true)
+    this.addTab(this.promptItemID, -1, true)
   }
 
   editScribeLink () {

@@ -1,11 +1,13 @@
 'use strict'
 
-import { app, protocol, BrowserWindow, Menu, dialog, ipcMain, IpcMainEvent } from 'electron'
+import { app, protocol, BrowserWindow, Menu, dialog, ipcMain, IpcMainEvent, SaveDialogOptions, OpenDialogOptions, FileFilter } from 'electron'
+import fs from 'fs'
 import path from 'path'
-import store from './store/index'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
-import IPCCommEvents from './Comms/IPCCommsEvents'
+import IpcCommEvents from './Comms/IPCCommsEvents'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
+import Campaign from '@/types/Campaign'
+
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const isMac: boolean = process.platform === 'darwin'
 
@@ -14,7 +16,7 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { secure: true, standard: true } }
 ])
 
-let window: BrowserWindow;
+let window: BrowserWindow
 
 async function createWindow () {
   // Create the browser window.
@@ -25,8 +27,8 @@ async function createWindow () {
 
       // Use pluginOptions.nodeIntegration, leave this alone
       // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
-      nodeIntegration: (process.env.ELECTRON_NODE_INTEGRATION as unknown) as boolean,
-      contextIsolation: true,
+      nodeIntegration: true, // (process.env.ELECTRON_NODE_INTEGRATION as unknown) as boolean,
+      contextIsolation: false,
       preload: path.join(__dirname, 'preload.js')
     }
   })
@@ -88,48 +90,27 @@ if (isDevelopment) {
   }
 }
 
-function initMenu(): void {
-  const menuTemplate: any =  [
+function initMenu (): void {
+  const menuTemplate: any = [
     ...(isMac ? [{
       label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideothers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
+      submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'services' }, { type: 'separator' }, { role: 'hide' },
+        { role: 'hideothers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }]
     }] : []),
-    //File
-    { 
+    // File
+    {
       label: 'File',
       submenu: [
-        { 
-          label: 'New', 
-          click: fileNew 
-        },
-        {
-          label: 'Open',
-          click: fileOpen
-        },
-        {
-          label: 'Save',
-          click: fileSave
-        },
-        {
-          label: 'Save as',
-          click: fileSaveAs
-        },
+        { label: 'New', click: menuNew },
+        { label: 'Open', click: menuOpen },
+        { label: 'Save', click: menuSave },
+        { label: 'Save as', click: menuSaveAs },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
-    //Edit
-    { 
+    // Edit
+    {
       label: 'Edit',
       submenu: [
         { role: 'undo' },
@@ -145,10 +126,7 @@ function initMenu(): void {
           { type: 'separator' },
           {
             label: 'Speech',
-            submenu: [
-              { role: 'startSpeaking' },
-              { role: 'stopSpeaking' }
-            ]
+            submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }]
           }
         ] : [
           { role: 'delete' },
@@ -157,7 +135,7 @@ function initMenu(): void {
         ])
       ]
     },
-    //view
+    // view
     {
       label: 'View',
       submenu: [
@@ -172,7 +150,7 @@ function initMenu(): void {
         { role: 'togglefullscreen' }
       ]
     },
-    //Window
+    // Window
     {
       label: 'Window',
       submenu: [
@@ -188,84 +166,116 @@ function initMenu(): void {
         ])
       ]
     },
-    ...( isDevelopment ? 
-    //Help
-    [{
-      role: 'help',
-      submenu: [
-        {
-          label: 'Learn More',
-          click: async () => {
-            const { shell } = require('electron')
-            await shell.openExternal('https://electronjs.org')
+    ...(isDevelopment
+    // Help
+      ? [{
+        role: 'help',
+        submenu: [
+          {
+            label: 'Learn More',
+            click: async () => {
+              const { shell } = require('electron')
+              await shell.openExternal('https://electronjs.org')
+            }
           }
-        }
-      ]
-    }] : [])
+        ]
+      }] : [])
   ]
   const menu = Menu.buildFromTemplate(menuTemplate)
   Menu.setApplicationMenu(menu)
 }
 
-function fileNew(menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
+function menuNew (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
-    browserWindow.webContents.send(IPCCommEvents.newFile, ["Test arguments"])
+    console.log('menu item new clicked')
+    browserWindow.webContents.send(IpcCommEvents.newCampaign, [])
+  } else {
+    dialog.showErrorBox('Error', 'Electron Window invalid')
   }
 }
 
-function fileOpen(menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
-  const dialogOptions: Electron.OpenDialogOptions = { 
-    title: menuItem.label, 
-    properties: !isMac ? ['openFile', 'promptToCreate'] : ['openFile', 'createDirectory'] 
-  }
+function menuOpen (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
-    dialog.showOpenDialog(dialogOptions).then((response: Electron.OpenDialogReturnValue) => {
-      if (!response.canceled) {
-        // handle fully qualified file name
-        browserWindow.webContents.send(IPCCommEvents.loadFile)
-      } else {
-        console.log("no file selected");
-      }
-    })
+    console.log(browserWindow)
+    const defaultDir = app.getPath('documents')
+    const openDialogOptions: OpenDialogOptions = {
+      title: '',
+      filters: [{ name: 'json', extensions: ['json'] }],
+      properties: ['openFile', 'createDirectory', 'promptToCreate']
+    }
+    const filepath: string[]|undefined = dialog.showOpenDialogSync(browserWindow, openDialogOptions)
+    if (!filepath) { return }
+
+    browserWindow.webContents.send(IpcCommEvents.openCampaignFromObject, filepath)
+  } else {
+    dialog.showErrorBox('Error', 'Electron Window invalid')
   }
 }
 
-function fileSave (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent) {
+function menuSave (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
-    browserWindow.webContents.send(IPCCommEvents.saveFile)
+    console.log(browserWindow)
+    browserWindow.webContents.send(IpcCommEvents.saveCurrentFile)
+  } else {
+    dialog.showErrorBox('Error', 'Electron Window invalid')
   }
 }
 
-function fileSaveAs (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent) {
-  const dialogOptions: Electron.SaveDialogOptions = { 
-    title: menuItem.label,    
-  }
+function menuSaveAs (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
-    dialog.showSaveDialog(dialogOptions).then((response: Electron.SaveDialogReturnValue): void => {
-      if (!response.canceled) {
-        // handle fully qualified file name
-        console.log(response.filePath);
-        browserWindow.webContents.send(IPCCommEvents.saveAsFile, response.filePath)
-      } else {
-        console.log("no file selected");
-      }
-    })
+    const dir: string = app.getPath('documents')
+    const saveDialogOptions: SaveDialogOptions = {
+      title: 'Save Campaign',
+      buttonLabel: 'save',
+      filters: [{ name: 'json', extensions: ['json'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation']
+    }
+    if (dir) {
+      saveDialogOptions.defaultPath = dir
+    }
+    const path: string|undefined = dialog.showSaveDialogSync(browserWindow, saveDialogOptions)
+    if (!path) {
+      return
+    }
+    (browserWindow as any).electron.send(IpcCommEvents.saveCampaignToFile, [path])
+  } else {
+    dialog.showErrorBox('Error', 'Electron Window invalid')
   }
-  
 }
 
 // IPC Main comms
-ipcMain.on(IPCCommEvents.selectFileToSave, (event: IpcMainEvent, args: any[]) => {
-  //if save was called but there is no previous path to save to make the user select one
-  const dialogOptions: Electron.SaveDialogOptions = { 
-    title: 'Save File'   
+ipcMain.on(IpcCommEvents.saveFile, (event: IpcMainEvent, args: any[]) => {
+  console.log('IPC - Save file')
+  console.log(event)
+  console.log(args)
+  try {
+    fs.writeFileSync(args[0], args[1], 'utf-8')
+  } catch {
+
   }
-  dialog.showSaveDialog(dialogOptions).then((response: Electron.SaveDialogReturnValue) => {
-    if(!response.canceled){
-      console.log(response.filePath)
-      //BrowserWindow.webContents.send(IPCCommEvents.saveAsFile, response.filePath)
-    } else {
-      console.log('No File was selected')
-    }
+})
+
+ipcMain.on(IpcCommEvents.openFile, (event: IpcMainEvent, args: any[]) => {
+  console.log('IPC - Open File')
+  console.log(event)
+  console.log(args)
+  const window: BrowserWindow|undefined = BrowserWindow.getAllWindows().find((win: BrowserWindow) => {
+    return win.id === args[2]
   })
+  console.log('Main = open')
+  try {
+    const filePath: string = args[0]
+    if (!fs.existsSync(filePath)) {
+      throw 'File does not exist'
+    }
+
+    const obj: Campaign = JSON.parse(fs.readFileSync(args[0], 'utf-8'))
+    if ((window as any).electron) {
+      console.log('electron api found')
+    } else {
+      console.log('electron api not found')
+    }
+  } catch {
+
+  }
 })

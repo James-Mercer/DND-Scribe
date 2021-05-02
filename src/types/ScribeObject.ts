@@ -1,7 +1,7 @@
 import { v4 as uuidV4 } from 'uuid'
 
 export default class ScribeObject {
-  static typeName: string = 'ScribeObject'
+  static typeName = 'ScribeObject'
   name: string
   id: string
   type: string

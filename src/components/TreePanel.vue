@@ -6,7 +6,7 @@
     <v-treeview hoverable dense
     open-on-click
     return-object
-    :items="items">
+    :items="tree">
       <template v-slot:label="{ item }">
         <v-list-item @click="openItem(item)" @contextmenu="show"
         :id="item.id"
@@ -33,19 +33,24 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
-import { Getter, Mutation } from 'vuex-class'
-import { ADD_TAB, REMOVE_TAB_BY_ID, GET_CAMPAIGN, REMOVE_OBJECT } from '@/store/operation-types'
+import { Vue, Component, Watch } from 'vue-property-decorator'
+import { State, Getter, Action, Mutation, namespace } from 'vuex-class'
+import { mapState } from 'vuex'
 import Campaign from '@/types/Campaign'
 import TreeGroup from '@/types/TreeGroup'
 import Session from '@/types/Session'
 import PlayerCharacter from '@/types/PlayerCharacter'
 import NonPlayerCharacter from '@/types/NonPlayerCharacter'
+import Location from '@/types/Location'
 import ScribeObject from '@/types/ScribeObject'
+import { watch } from 'original-fs'
+import ReactiveMap from '@/types/ReactiveMap'
 
-@Component({})
+const someModule = namespace('AppModule/')
+
+@Component
 export default class TreePanel extends Vue {
-  tree: any = {}
+  tree: Array<TreeGroup> = []
   selection: Array<any> = []
 
   contextMenuData: any = {
@@ -56,26 +61,50 @@ export default class TreePanel extends Vue {
     type: ''
   }
 
-  @Getter(GET_CAMPAIGN) campaign!: Campaign
-  @Mutation(ADD_TAB) addTab!: (id: string, focus: boolean) => void
-  @Mutation(REMOVE_TAB_BY_ID) removeTabById!: (id: string) => void
-  @Mutation(REMOVE_OBJECT) removeObject!: (id: string) => boolean
+  @Mutation('addTab') addTab!: (id: string, focus: boolean) => void
+  @Mutation('removeObject') removeObject!: (id: string) => void
+  @Mutation('removeTabById') removeTabById!: (id: string) => void
+  @Mutation('setTitle') setTitle!: (title: string) => void
+  @Getter('getTitle') getTitle !: string
+  @Getter('getObjects') getObjects!: ReactiveMap
 
-  get items (): Array<TreeGroup> {
-    const camp: Campaign = this.campaign
-    console.log(camp)
+  mounted () { console.log('TreePanel Mounted') }
+  @Watch('getObjects', { immediate: true, deep: true })
+  objectsChanged (val: any): void {
+    console.log('object changed')
+    const objects: ReactiveMap = this.getObjects
+    console.log(objects)
+    const newTree: Array<TreeGroup> = []
+    const sessionTreeGroup = new TreeGroup('0', 'Sessions')
+    const pcTreeGroup = new TreeGroup('1', 'Player Characters')
+    const npcTreeGroup = new TreeGroup('2', 'Non-Player Characters')
+    const locationTreeGroup = new TreeGroup('3', 'Locations')
 
-    const items: Array<TreeGroup> = []
-    const sessionGroup = new TreeGroup('1', Session.typeName + 's')
-    sessionGroup.children = camp.sessions
-    items.push(sessionGroup)
-    const pcGroup = new TreeGroup('2', PlayerCharacter.typeName + 's')
-    pcGroup.children = camp.playerCharacters
-    items.push(pcGroup)
-    const npcGroup = new TreeGroup('3', NonPlayerCharacter.typeName + 's')
-    npcGroup.children = camp.nonPlayerCharacters
-    items.push(npcGroup)
-    return items
+    objects.forEach((obj: ScribeObject) => {
+      console.log(`for each on ${obj.id}`)
+      switch (obj.type) {
+        case Session.typeName:
+          sessionTreeGroup.children.push(obj)
+          break
+        case PlayerCharacter.typeName:
+          pcTreeGroup.children.push(obj)
+          break
+        case NonPlayerCharacter.typeName:
+          npcTreeGroup.children.push(obj)
+          break
+        case Location.typeName:
+          locationTreeGroup.children.push(obj)
+          break
+        default:
+          break
+      }
+    })
+    console.log()
+    newTree.push(sessionTreeGroup)
+    newTree.push(pcTreeGroup)
+    newTree.push(npcTreeGroup)
+    newTree.push(locationTreeGroup)
+    this.tree = newTree
   }
 
   get menuItems (): Array<string> {
