@@ -1,12 +1,14 @@
+
 'use strict'
 
-import { app, protocol, BrowserWindow, Menu, dialog, ipcMain, IpcMainEvent, SaveDialogOptions, OpenDialogOptions, FileFilter } from 'electron'
+import { app, protocol, BrowserWindow, Menu, dialog, ipcMain, IpcMainEvent, SaveDialogOptions, OpenDialogOptions, FileFilter, IpcRenderer } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import IpcCommEvents from './Comms/IPCCommsEvents'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
-import Campaign from '@/types/Campaign'
+import ReactiveMap from '@/types/ReactiveMap';
+import { PersistantState } from './store/StoreInterfaces'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const isMac: boolean = process.platform === 'darwin'
@@ -196,48 +198,59 @@ function menuNew (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWi
 
 function menuOpen (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
-    console.log(browserWindow)
-    const defaultDir = app.getPath('documents')
+    const defaultDir: string = app.getPath('documents')
     const openDialogOptions: OpenDialogOptions = {
       title: '',
       filters: [{ name: 'json', extensions: ['json'] }],
       properties: ['openFile', 'createDirectory', 'promptToCreate']
     }
+    if(defaultDir) { openDialogOptions.defaultPath = defaultDir }
+
     const filepath: string[]|undefined = dialog.showOpenDialogSync(browserWindow, openDialogOptions)
     if (!filepath) { return }
 
-    browserWindow.webContents.send(IpcCommEvents.openCampaignFromObject, filepath)
+    if (!fs.existsSync(filepath[0])) {
+      throw Error('The supplied file path does not exist')
+    }
+    const obj: PersistantState = JSON.parse(fs.readFileSync(filepath[0], 'utf-8'))
+    console.log('Object loaded')
+    console.log(obj)
+
+    browserWindow.webContents.send(IpcCommEvents.openCampaignFromObject, filepath, obj)
   } else {
     dialog.showErrorBox('Error', 'Electron Window invalid')
   }
 }
 
+const saveDialogOptions: SaveDialogOptions = {
+  title: 'Save Campaign',
+  buttonLabel: 'save',
+  filters: [{ name: 'json', extensions: ['json'] }],
+  properties: ['createDirectory', 'showOverwriteConfirmation']
+}
+
 function menuSave (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
-  if (browserWindow) {
-    console.log(browserWindow)
+  try{
+    if(!browserWindow)
+      throw Error('Electron Window invalid')
     browserWindow.webContents.send(IpcCommEvents.saveCurrentFile)
-  } else {
-    dialog.showErrorBox('Error', 'Electron Window invalid')
+  }
+  catch (e) {
+    dialog.showErrorBox('Error', e.message)
   }
 }
 
 function menuSaveAs (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow | undefined, event: Electron.KeyboardEvent): void {
   if (browserWindow) {
     const dir: string = app.getPath('documents')
-    const saveDialogOptions: SaveDialogOptions = {
-      title: 'Save Campaign',
-      buttonLabel: 'save',
-      filters: [{ name: 'json', extensions: ['json'] }],
-      properties: ['createDirectory', 'showOverwriteConfirmation']
-    }
     if (dir) {
       saveDialogOptions.defaultPath = dir
     }
     const path: string|undefined = dialog.showSaveDialogSync(browserWindow, saveDialogOptions)
-    if (!path) {
+    if (!path) 
       return
-    }
-    (browserWindow as any).electron.send(IpcCommEvents.saveCampaignToFile, [path])
+  
+    browserWindow.webContents.send(IpcCommEvents.saveCampaignToFile, path)
   } else {
     dialog.showErrorBox('Error', 'Electron Window invalid')
   }
@@ -246,36 +259,59 @@ function menuSaveAs (menuItem: Electron.MenuItem, browserWindow: Electron.Browse
 // IPC Main comms
 ipcMain.on(IpcCommEvents.saveFile, (event: IpcMainEvent, args: any[]) => {
   console.log('IPC - Save file')
-  console.log(event)
   console.log(args)
   try {
     fs.writeFileSync(args[0], args[1], 'utf-8')
-  } catch {
-
+    const win: BrowserWindow|undefined = BrowserWindow.getAllWindows().find((w: BrowserWindow) => { return event.sender.id === w.webContents.id})
+    if (win)
+      win.webContents.send(IpcCommEvents.updateFilePath, args[0])
+  } catch (e) {
+    dialog.showErrorBox(e.name, e.message)
   }
 })
 
 ipcMain.on(IpcCommEvents.openFile, (event: IpcMainEvent, args: any[]) => {
   console.log('IPC - Open File')
-  console.log(event)
-  console.log(args)
-  const window: BrowserWindow|undefined = BrowserWindow.getAllWindows().find((win: BrowserWindow) => {
-    return win.id === args[2]
-  })
-  console.log('Main = open')
   try {
+    const window: BrowserWindow|undefined = BrowserWindow.getAllWindows().find((win: BrowserWindow) => { return win.id === event.sender.id })
+    if (!window)
+      throw Error('No Window')
+  
     const filePath: string = args[0]
     if (!fs.existsSync(filePath)) {
-      throw 'File does not exist'
+      throw Error('The supplied file path does not exist')
     }
-
-    const obj: Campaign = JSON.parse(fs.readFileSync(args[0], 'utf-8'))
-    if ((window as any).electron) {
-      console.log('electron api found')
-    } else {
-      console.log('electron api not found')
-    }
-  } catch {
+    const obj: PersistantState = JSON.parse(fs.readFileSync(args[0], 'utf-8'))
+    window.webContents.send(IpcCommEvents.openCampaignFromObject, filePath, obj)
+  }catch (e)  
+  {
 
   }
+})
+
+ipcMain.on(IpcCommEvents.pickAndSaveFile, (event: IpcMainEvent, args: any[])=> {
+  console.log('IPC - Pick and save')
+  console.log(args)
+  try { 
+    const dir: string = app.getPath('documents')
+    if (dir) { saveDialogOptions.defaultPath = dir }
+
+    const window: BrowserWindow|undefined = BrowserWindow.getAllWindows().find((win: BrowserWindow) => { return win.webContents.id === event.sender.id})
+    if(!window) {
+      throw Error('No window')
+    }
+    const file: string|undefined = dialog.showSaveDialogSync(window, saveDialogOptions)
+    if(!file)
+      return
+    fs.writeFileSync(file, JSON.stringify(args[0]), 'utf-8')
+  }
+  catch (e) {
+    dialog.showErrorBox('Error', e.message)
+  }  
+})
+
+ipcMain.on(IpcCommEvents.showError, (event: IpcMainEvent, args: any[]) => {
+  console.log('Ipc - Show Error')
+  console.log(args)
+  dialog.showErrorBox('Error', (args[0] as Error).message)
 })

@@ -3,11 +3,14 @@ import IpcCommsEvents from './Comms/IPCCommsEvents'
 const { ipcRenderer } = require('electron')
 const validChannels = [
   IpcCommsEvents.saveFile,
+  IpcCommsEvents.pickAndSaveFile,
   IpcCommsEvents.openFile,
   IpcCommsEvents.newCampaign,
   IpcCommsEvents.saveCampaignToFile,
   IpcCommsEvents.saveCurrentFile,
-  IpcCommsEvents.openCampaignFromObject
+  IpcCommsEvents.openCampaignFromObject,
+  IpcCommsEvents.updateFilePath,
+  IpcCommsEvents.showError
 ]
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object

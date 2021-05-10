@@ -1,84 +1,117 @@
 import Vue from 'vue'
-import Vuex from 'vuex'
+import Vuex, { CommitOptions } from 'vuex'
 import Campaign from '@/types/Campaign'
 import ReactiveMap from '@/types/ReactiveMap'
 import ScribeObject from '@/types/ScribeObject'
-import TreeGroup from '@/types/TreeGroup'
-import Session  from '@/types/Session';
-import PC from '@/types/PlayerCharacter'
-import NPC from '@/types/NonPlayerCharacter'
-import Location from '@/types/Location'
-import PlayerCharacter from '@/types/PlayerCharacter'
-import NonPlayerCharacter from '@/types/NonPlayerCharacter'
-
-const defaultCampaignName:string = 'Unnamed Campaign'
+import {StoreState, StoreGetters, defaultCampaignName, addTabPayload, PersistantState, loadPayload, newCampaignPayload} from './StoreInterfaces'
 
 Vue.use(Vuex)
 
-class StoreState {
-  title: string
-  objects: ReactiveMap
-  openTabs: Array<string>
-  tabIndex: number
-
-  constructor() {
-    this.title = defaultCampaignName
-    this.objects = new ReactiveMap()
-    this.openTabs = new Array<string>()
-    this.tabIndex = -1
-  }
-}
-
 const storeGetters = {
-  getTitle (state: StoreState): string {
+  getTitle (state: StoreState): string 
+  {
     return state.title 
   },
-  getObjects (state: StoreState): ReactiveMap {
+  getObjects (state: StoreState): ReactiveMap 
+  {
     return state.objects
   },
-  getOpenTabs (state: StoreState): Array<string> {
+  getOpenTabs (state: StoreState): Array<string> 
+  {
     return state.openTabs
   },
-  getTabIndex (state: StoreState): number {
+  getTabIndex (state: StoreState): number 
+  {
     return state.tabIndex
+  },
+  getCurrentTabObject(state: StoreState): ScribeObject|undefined 
+  {
+    return state.objects.get(state.openTabs[state.tabIndex])
+  },
+  getFilePath(state: StoreState): string|undefined {
+    return state.filePath
+  },
+  getStateToSave(state: StoreState): PersistantState {
+    return {
+      title: state.title,
+      objects: state.objects,
+      openTabs: state.openTabs,
+      tabIndex: state.tabIndex,
+    }
   }
-}
-
-export interface addTabPayload {
-  id: string
-  index: number
-  focus: boolean
 }
 
 const storeMutations = {
-  setTitle(state: StoreState, title: string): void {
+  setTitle(state: StoreState, title: string): void 
+  {
     state.title = title
   },
-  addObject(state: StoreState, obj: ScribeObject): void {
+  addObject(state: StoreState, obj: ScribeObject): void 
+  {
     Vue.set(state.objects, obj.id, obj)
   },
-  removeObject(state: StoreState, id: string): void {
-    state.objects.delete(id) 
+  removeObject(state: StoreState, id: string): void 
+  {
+    Vue.delete(state.objects, id)
   },
-  addTab(state: StoreState, payload: addTabPayload): void {
-    if(state.openTabs.find((e: string): boolean => { return e === payload.id }) === undefined ) {
-      state.openTabs.splice(payload.index > -1 ? payload.index : state.openTabs.length -1, 0, payload.id)
+  addTab(state: StoreState, payload: addTabPayload): void 
+  {
+    console.log('add tab payload')
+    console.log(payload)
+    let index: number = state.openTabs.findIndex((e: string): boolean => { return e === payload.id })
+    if(index === -1) 
+    {
+      if (payload.index) 
+      {
+        state.openTabs.splice(payload.index, 0, payload.id)
+        index = payload.index
+      }
+      else {
+        state.openTabs.push(payload.id)
+        index = state.openTabs.length
+      }
+    } 
+    else 
+      console.log('Item already open in a tab')
+    
+    if(payload.focus) {
+      state.tabIndex = index
     }
   },
-  removeTabById(state: StoreState, id: string): void {
+  removeTabById(state: StoreState, id: string): void 
+  {
     const index = state.openTabs.findIndex((e: string): boolean => { return e === id })
     if(index !== -1)
       state.openTabs.splice(index, 1)
   },
-  removeTabByIndex(state: StoreState, index: number) {
+  removeTabByIndex(state: StoreState, index: number) 
+  {
+    if(index >= 0 && index < state.openTabs.length) {
+      state.openTabs.splice(index, 1)
+    }
+  },
+  setCurrentTabIndex(state: StoreState, index: number): void 
+  {
+    console.log(`set tab index ${index}`)
     if(index >= 0 && index < state.openTabs.length) {
       state.tabIndex = index
     }
   },
-  setCurrentTabIndex(state: StoreState, index: number): void {
-    if(index >= 0 && index < state.openTabs.length) {
-      state.tabIndex = index
-    }
+  setFilePath(state: StoreState, path: string) {
+    state.filePath = path
+  },
+  loadCampaign(state: StoreState, payload: loadPayload): void {
+    console.log('loadCampaign')
+    state.filePath = payload.path
+    state.title = payload.toLoad.title
+    state.openTabs = payload.toLoad.openTabs
+    state.tabIndex = payload.toLoad.tabIndex
+    let newMap = new ReactiveMap()
+    newMap.copyPropsFromObject(payload.toLoad.objects)
+    Vue.set(state, 'objects', newMap)
+  },
+  newCampaign(state: StoreState, payload?: newCampaignPayload): void {
+    state = new StoreState(payload?.title, payload?.path)
   }
 }
 

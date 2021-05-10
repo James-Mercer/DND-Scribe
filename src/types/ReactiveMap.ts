@@ -44,6 +44,23 @@ export default class ReactiveMap  extends Object implements IndexSignature {
     })
   }
 
+  copyPropsFromObject(obj: ReactiveMap) {
+    const entries: string[] = Object.keys(obj)
+    entries.forEach((entry) => {
+      this[entry] = obj[entry]
+      this.count += 1
+    })
+  }
+
+  clear(): void {
+    const entries: string[] = Object.keys(this)
+    entries.forEach((entry) => {
+      if(this[entry])
+        delete this[entry]
+    })
+    this.count = 0
+  }
+
   size(): number {
     return this.count
   }
