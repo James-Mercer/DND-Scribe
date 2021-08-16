@@ -1,34 +1,46 @@
 <template>
-  <div>
+  <div id="tabbed-editor" class="pa-0">
     <v-tabs
       next-icon="mdi-arrow-right-bold-box-outline"
       prev-icon="mdi-arrow-left-bold-box-outline"
       show-arrows
-      v-model="currentOpenTabIndex">
+      v-model="openTabIndex"
+    >
       <v-tabs-slider></v-tabs-slider>
-      <v-tab v-for="tab in getTabs" :key="tab" @contextmenu="showContextMenu">
-        {{ getTabTitle(tab) }}
-        <v-btn x-small @click="closeTab(key)"> x </v-btn>
-        </v-tab>
+      <v-tab
+        v-for="(tab, index) in openTabs"
+        :key="tab"
+        @contextmenu="showContextMenu"
+      >
+        {{ getTabTitle(index) }}
+        <v-btn x-small @click="closeTab(index)"> x </v-btn>
+      </v-tab>
     </v-tabs>
 
-    <v-tabs-items v-model="currentOpenTabIndex">
-      <v-tab-item v-for="t in getTabs" :key="t">
-        <SessionEditor v-if="getTabObjectType === 'session'"/>
-        <PCEditor v-else-if="getTabObjectType === 'PC'"/>
-        <NPCEditor v-else-if="getTabObjectType === 'NPC'"/>
+    <v-tabs-items id="tab-items" v-model="openTabIndex">
+      <v-tab-item v-for="tabId in openTabs" :key="tabId">
+        <session-editor v-if="isSession"></session-editor>
+        <editor v-else></editor>
       </v-tab-item>
     </v-tabs-items>
 
-    <v-menu dense
-      v-model="promptVisible"
-      :position-x="promptX"
-      :position-y="promptY"
-      absolute offset-y >
+    <v-menu
+      dense
+      v-model="contextMenuData.visible"
+      :position-x="contextMenuData.x"
+      :position-y="contextMenuData.y"
+      absolute
+      offset-y
+    >
       <v-list>
-        <v-list-item dense v-for="menuItem in menuItems" :key="menuItem" @click="clickAction(menuItem)">
+        <v-list-item
+          dense
+          v-for="menuItem in menuItems"
+          :key="menuItem"
+          @click="clickAction(menuItem)"
+        >
           <v-list-item-content>
-            <v-list-item-title>{{menuItem}}</v-list-item-title>
+            <v-list-item-title>{{ menuItem }}</v-list-item-title>
           </v-list-item-content>
         </v-list-item>
       </v-list>
@@ -36,67 +48,85 @@
   </div>
 </template>
 
-<script lang='ts'>
+<script lang="ts">
 import { Vue, Component } from 'vue-property-decorator'
-import { Getter, Action } from 'vuex-class'
-import SessionEditor from './SessionEditor.vue'
-import PCEditor from './PCEditor.vue'
-import NPCEditor from './NPCEditor.vue'
+import { State, Getter, Mutation } from 'vuex-class'
+
 import ScribeObject from '@/types/ScribeObject'
-import Campaign from '@/types/Campaign'
-import PromptData from '@/types/PopupPromptData'
+import Session from '@/types/Session'
+
+import Editor from './Editors/Editor.vue'
+import SessionEditor from './Editors/SessionEditor.vue'
+
+interface ContextMenu {
+  x: number;
+  y: number;
+  visible: boolean;
+  targetID: string;
+  targetType: string;
+}
 
 @Component({
   components: {
-    SessionEditor,
-    PCEditor,
-    NPCEditor
+    Editor,
+    SessionEditor
   }
 })
 export default class EditorContainer extends Vue {
-  contextMenuData: PromptData = new PromptData()
+  contextMenuData: ContextMenu = {
+    x: 0,
+    y: 0,
+    visible: false,
+    targetID: '',
+    targetType: ''
+  }
+
   menuItems: Array<string> = ['Close all but this', 'Close all']
 
-  @Getter('getOpenTabs') getTabs!: Array<string>
-  @Getter('getTabIndex') getCurrentTabIndex!: number
-  @Action('findObject') findObject!: (id: string) => ScribeObject | undefined
-  @Action('setCurrentTabIndex') setCurrentTabIndex!: (index: number) => void
-  @Action('removeTab') removeTab!: (index: number) => void
+  @State openTabs!: Array<string>
+  @State tabIndex!: number
+  @Getter getCurrentTabObject!: ScribeObject | undefined
+  @Getter getTabTitles!: Array<string>
+  @Mutation setCurrentTabIndex!: (index: number) => void
+  @Mutation removeTabByIndex!: (index: number) => void
 
-  get currentOpenTabIndex (): number { return this.getCurrentTabIndex }
-  set currentOpenTabIndex (newVal: number) { this.setCurrentTabIndex(newVal) }
+  get isSession () {
+    return this.getCurrentTabObject
+      ? this.getCurrentTabObject.type === Session.typeName
+      : false
+  }
 
-  getTabTitle (id: string): string {
-    const obj: ScribeObject | undefined = this.findObject(id)
-    return obj ? obj.name : 'Unknown Object'
+  get openTabIndex (): number {
+    return this.tabIndex
+  }
+
+  set openTabIndex (newVal: number) {
+    this.setCurrentTabIndex(newVal)
+  }
+
+  getTabTitle (index: number): string {
+    return this.getTabTitles[index]
   }
 
   get getTabObjectType (): string {
-    const id: string = this.getTabs[this.currentOpenTabIndex]
-    const obj: ScribeObject | undefined = this.findObject(id)
-    return obj ? obj.type : ScribeObject.typeName
+    return this.getCurrentTabObject
+      ? this.getCurrentTabObject.type
+      : ScribeObject.typeName
   }
 
-  get promptX (): number { return this.contextMenuData.getX() }
-  get promptY (): number { return this.contextMenuData.getY() }
-  get promptVisible (): boolean { return this.contextMenuData.getVisible() }
-  set promptVisible (newVal: boolean) { this.contextMenuData.setVisible(newVal) }
-
-  closeTab (key: string): void {
-    if (this.currentOpenTabIndex > -1) {
-      this.removeTab(this.currentOpenTabIndex)
-    }
+  closeTab (index: number): void {
+    this.removeTabByIndex(index)
   }
 
   showContextMenu (e: any): void {
     e.preventDefault()
-    const target = e.target || e.srcElement
-    this.contextMenuData.setVisible(false)
-    this.contextMenuData.setPosition(e.clientX, e.clientY)
+    this.contextMenuData.visible = false
+    this.contextMenuData.x = e.clientX
+    this.contextMenuData.y = e.clientY
     // this.contextMenuData.targetId = target.getAttribute('id')
     // this.contextMenuData.type = target.getAttribute('type')
     this.$nextTick(() => {
-      this.contextMenuData.setVisible(true)
+      this.contextMenuData.visible = true
     })
   }
 
@@ -106,3 +136,15 @@ export default class EditorContainer extends Vue {
   }
 }
 </script>
+
+<style scoped>
+#tabbed-editor,
+.v-window-item {
+  height: 100%;
+}
+
+#tab-items {
+  height: calc(100% - 48px);
+  overflow: scroll;
+}
+</style>

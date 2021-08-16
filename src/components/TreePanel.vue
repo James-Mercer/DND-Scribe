@@ -1,59 +1,84 @@
 <template>
-  <div>
-    <v-toolbar dense>
-      <v-text-field prepend-icon="mdi-magnify" hide-detail single-line clearable></v-text-field>
-    </v-toolbar>
-    <v-treeview hoverable dense
-    open-on-click
-    return-object
-    :items="tree">
+  <v-sheet>
+    <v-treeview
+      elevation="0"
+      hoverable
+      dense
+      open-on-click
+      return-object
+      :items="tree"
+    >
       <template v-slot:label="{ item }">
-        <v-list-item @click="openItem(item)" @contextmenu="show"
-        :id="item.id"
-        :type="item.type">
-        {{item.name}}
+        <v-list-item
+          @click="openItem(item)"
+          @contextmenu="show"
+          :id="item.id"
+          :type="item.type"
+        >
+          {{ item.name }}
         </v-list-item>
       </template>
     </v-treeview>
-    <v-menu dense
-    v-model="contextMenuData.show"
-    :position-x="contextMenuData.x"
-    :position-y="contextMenuData.y"
-    absolute
-    offset-y >
+    <v-menu
+      dense
+      v-model="contextMenuData.show"
+      :position-x="contextMenuData.x"
+      :position-y="contextMenuData.y"
+      absolute
+      offset-y
+    >
       <v-list>
-        <v-list-item dense v-for="menuItem in menuItems" :key="menuItem" @click="clickAction(menuItem)">
+        <v-list-item
+          dense
+          v-for="menuItem in menuItems"
+          :key="menuItem"
+          @click="clickAction(menuItem)"
+        >
           <v-list-item-content>
-            <v-list-item-title>{{menuItem}}</v-list-item-title>
+            {{ menuItem }}
           </v-list-item-content>
         </v-list-item>
       </v-list>
     </v-menu>
-  </div>
+  </v-sheet>
 </template>
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
-import { State, Getter, Action, Mutation, namespace } from 'vuex-class'
-import { mapState } from 'vuex'
-import Campaign from '@/types/Campaign'
+import { State, Mutation, namespace } from 'vuex-class'
+
+import { PayloadAddTab } from '@/store/StoreInterfaces'
+
+import ScribeObject from '@/types/ScribeObject'
 import TreeGroup from '@/types/TreeGroup'
 import Session from '@/types/Session'
-import PlayerCharacter from '@/types/PlayerCharacter'
-import NonPlayerCharacter from '@/types/NonPlayerCharacter'
+import Character from '@/types/Character'
 import Location from '@/types/Location'
-import ScribeObject from '@/types/ScribeObject'
-import { watch } from 'original-fs'
+import Organisation from '@/types/Organisation'
+import Artifact from '@/types/Artifact'
 import ReactiveMap from '@/types/ReactiveMap'
+import { sessionTypeName, typeNames } from '@/types/typeUtils'
 
 const someModule = namespace('AppModule/')
 
 @Component
 export default class TreePanel extends Vue {
+  static Events = {
+    openInGraph: 'open-in-graph',
+    openInTimeline: 'open-in-timeline',
+    newItem: 'new-item'
+  }
+
   tree: Array<TreeGroup> = []
   selection: Array<any> = []
 
-  contextMenuData: any = {
+  contextMenuData: {
+    x: number;
+    y: number;
+    show: boolean;
+    targetId: string | number;
+    type: string;
+  } = {
     x: 0,
     y: 0,
     show: false,
@@ -61,64 +86,100 @@ export default class TreePanel extends Vue {
     type: ''
   }
 
-  @Mutation('addTab') addTab!: (id: string, focus: boolean) => void
+  @State view!: number
+  @State title!: string
+  @State objects!: ReactiveMap
+  @Mutation setView!: (viewNum: number) => void
+  @Mutation('addTab') addTab!: (payload: PayloadAddTab) => void
   @Mutation('removeObject') removeObject!: (id: string) => void
   @Mutation('removeTabById') removeTabById!: (id: string) => void
   @Mutation('setTitle') setTitle!: (title: string) => void
-  @Getter('getTitle') getTitle !: string
-  @Getter('getObjects') getObjects!: ReactiveMap
 
-  mounted () { console.log('TreePanel Mounted') }
-  @Watch('getObjects', { immediate: true, deep: true })
+  get campaignTitle (): string {
+    return this.title
+  }
+
+  set campaignTitle (title: string) {
+    this.setTitle(title)
+  }
+
+  @Watch('objects', { immediate: true, deep: false })
   objectsChanged (val: any): void {
-    console.log('object changed')
-    const objects: ReactiveMap = this.getObjects
-    console.log(objects)
     const newTree: Array<TreeGroup> = []
     const sessionTreeGroup = new TreeGroup('0', 'Sessions')
-    const pcTreeGroup = new TreeGroup('1', 'Player Characters')
-    const npcTreeGroup = new TreeGroup('2', 'Non-Player Characters')
-    const locationTreeGroup = new TreeGroup('3', 'Locations')
+    const characterTreeGroup = new TreeGroup('1', 'Characters')
+    const locationTreeGroup = new TreeGroup('2', 'Locations')
+    const OrganisationTreeGroup = new TreeGroup('3', 'Organisations')
+    const ArtifactTreeGroup = new TreeGroup('4', 'Artifacts')
 
-    objects.forEach((obj: ScribeObject) => {
-      console.log(`for each on ${obj.id}`)
+    this.objects.forEach((obj: ScribeObject) => {
       switch (obj.type) {
         case Session.typeName:
           sessionTreeGroup.children.push(obj)
           break
-        case PlayerCharacter.typeName:
-          pcTreeGroup.children.push(obj)
-          break
-        case NonPlayerCharacter.typeName:
-          npcTreeGroup.children.push(obj)
+        case Character.typeName:
+          characterTreeGroup.children.push(obj)
           break
         case Location.typeName:
           locationTreeGroup.children.push(obj)
+          break
+        case Organisation.typeName:
+          OrganisationTreeGroup.children.push(obj)
+          break
+        case Artifact.typeName:
+          ArtifactTreeGroup.children.push(obj)
           break
         default:
           break
       }
     })
-    console.log()
     newTree.push(sessionTreeGroup)
-    newTree.push(pcTreeGroup)
-    newTree.push(npcTreeGroup)
+    newTree.push(characterTreeGroup)
     newTree.push(locationTreeGroup)
+    newTree.push(OrganisationTreeGroup)
+    newTree.push(ArtifactTreeGroup)
     this.tree = newTree
   }
 
   get menuItems (): Array<string> {
     if (this.contextMenuData.type === TreeGroup.typeName) {
-      return [] // ['new item']
+      return ['new item']
     } else {
-      return ['open', 'delete']
+      return [
+        'Open',
+        'Open in editor',
+        'Show on Graph',
+        'Show on Timeline',
+        'Delete'
+      ]
     }
   }
 
   openItem (item: ScribeObject): void {
-    if (item.type !== 'TreeGroup') {
-      this.addTab(item.id, true)
+    if (item.type !== TreeGroup.typeName) {
+      if (this.view === 0) {
+        this.openItemEditor(item)
+      }
+      if (this.view === 1) {
+        this.openItemGraph(item)
+      }
+      if (this.view === 2) {
+        this.openItemTimeline(item)
+      }
     }
+  }
+
+  openItemEditor (item: ScribeObject) {
+    const payload: PayloadAddTab = { id: item.id, focus: true }
+    this.addTab(payload)
+  }
+
+  openItemGraph (item: ScribeObject) {
+    this.$emit(TreePanel.Events.openInGraph, item)
+  }
+
+  openItemTimeline (item: ScribeObject) {
+    this.$emit(TreePanel.Events.openInTimeline, item)
   }
 
   show (e: any) {
@@ -136,17 +197,52 @@ export default class TreePanel extends Vue {
 
   clickAction (command: string) {
     console.log(command)
-    if (command === 'open') {
-      this.addTab(this.contextMenuData.targetId, true)
-    } else if (command === 'delete') {
-      this.removeObject(this.contextMenuData.targetId)
-      this.removeTabById(this.contextMenuData.targetId)
-    } else if (command === 'new item') {
-      // create a new item
+    if (this.contextMenuData.type !== TreeGroup.typeName) {
+      const obj = this.objects.get(this.contextMenuData.targetId.toString())
+      if (obj === undefined) {
+        return
+      }
+      switch (command) {
+        case this.menuItems[0]:
+          switch (this.view) {
+            case 0:
+              this.openItemEditor(obj)
+              break
+            case 1:
+              this.openItemGraph(obj)
+              break
+            case 2:
+              this.openItemTimeline(obj)
+              break
+          }
+          break
+        case this.menuItems[1]:
+          this.setView(0)
+          this.openItemEditor(obj)
+          break
+        case this.menuItems[2]:
+          this.setView(1)
+          this.openItemGraph(obj)
+          break
+        case this.menuItems[3]:
+          this.setView(2)
+          this.openItemTimeline(obj)
+          break
+        case this.menuItems[4]:
+          this.removeTabById(this.contextMenuData.targetId.toString())
+          this.removeObject(this.contextMenuData.targetId.toString())
+          break
+      }
+    } else if (this.contextMenuData.type === TreeGroup.typeName) {
+      if (command === this.menuItems[0]) {
+        const index: number =
+          parseInt(this.contextMenuData.targetId.toString()) + 1
+        const type = typeNames[index]
+        this.$emit(TreePanel.Events.newItem, type)
+      }
     }
   }
 }
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

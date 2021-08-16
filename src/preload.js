@@ -1,4 +1,4 @@
-import IpcCommsEvents from './Comms/IPCCommsEvents'
+import IpcCommsEvents from './ThreadComms/IPCCommsEvents'
 /* eslint-disable @typescript-eslint/no-var-requires */
 const { ipcRenderer } = require('electron')
 const validChannels = [

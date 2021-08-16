@@ -1,71 +1,70 @@
-import ScribeObject from '@/types/ScribeObject';
+import ScribeObject from '@/types/ScribeObject'
 
 interface IndexSignature {
-    [k: string]: any
+  [k: string]: any;
 }
 
-/** 
+/**
  * Trick vue reactiviy to be able to react to changes in maps by wrapping it in this class
-*/
-export default class ReactiveMap  extends Object implements IndexSignature {
+ */
+export default class ReactiveMap extends Object implements IndexSignature {
   [k: string]: any
-  count: number
 
-  constructor() {
+  constructor () {
     super()
-    this.count = 0
   }
 
-  has(id: string): boolean {
+  has (id: string): boolean {
     return this[id] !== undefined
   }
 
-  get(id: string): ScribeObject | undefined {
+  get (id: string): ScribeObject | undefined {
     return this[id]
   }
 
-  set(obj: ScribeObject): void {
+  set (obj: ScribeObject): void {
     this[obj.id] = obj
-    this.count += 1
   }
 
-  delete(id: string) {
-    if(this[id] !== undefined){
+  delete (id: string) {
+    if (this[id] !== undefined) {
       delete this[id]
     }
-    this.count -= 1
   }
 
-  forEach(callbackfn: (value: ScribeObject) => void, thisArg?: any): void {
+  forEach (callbackfn: (value: ScribeObject) => void, thisArg?: any): void {
     const entries: string[] = Object.keys(this)
-    entries.forEach((entry) => {
-      if(this[entry])
-        callbackfn(this[entry])
+    entries.forEach(entry => {
+      if (this[entry]) {
+        if (entry !== 'count') {
+          callbackfn(this[entry])
+        }
+      }
     })
   }
 
-  copyPropsFromObject(obj: ReactiveMap) {
-    const entries: string[] = Object.keys(obj)
-    entries.forEach((entry) => {
-      this[entry] = obj[entry]
-      this.count += 1
+  filter (filterFn: (value: ScribeObject) => boolean): Array<ScribeObject> {
+    const filtered: Array<ScribeObject> = []
+    this.forEach((object: ScribeObject) => {
+      if (filterFn(object)) {
+        filtered.push(object)
+      }
     })
+    return filtered
   }
 
-  clear(): void {
+  clear (): void {
     const entries: string[] = Object.keys(this)
-    entries.forEach((entry) => {
-      if(this[entry])
-        delete this[entry]
+    entries.forEach(entry => {
+      if (this[entry]) delete this[entry]
     })
-    this.count = 0
   }
 
-  size(): number {
-    return this.count
+  size (): number {
+    return Object.keys(this).length
   }
 }
 
-function readProp ( obj: ReactiveMap, id: string): any {
+function readProp (obj: ReactiveMap, id: string): any {
   return obj[id]
 }

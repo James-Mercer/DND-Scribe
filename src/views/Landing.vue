@@ -13,8 +13,11 @@
         </v-card>
         <v-card>
           <v-card-title> Recent </v-card-title>
-          <v-card-actions v-for="recentCampaign in recentCampaigns" :key="recentCampaign">
-            <v-btn block elevation="6"> {{recentCampaign}} </v-btn>
+          <v-card-actions
+            v-for="recentCampaign in recentCampaigns"
+            :key="recentCampaign"
+          >
+            <v-btn block elevation="6"> {{ recentCampaign }} </v-btn>
           </v-card-actions>
         </v-card>
       </v-sheet>

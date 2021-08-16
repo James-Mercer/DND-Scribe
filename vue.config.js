@@ -10,5 +10,5 @@ module.exports = {
     'vuetify',
     'vuex-module-decorators'
   ],
-  lintOnSave: false
+  lintOnSave: true
 }
