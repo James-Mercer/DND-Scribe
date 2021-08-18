@@ -2,7 +2,7 @@ module.exports = {
   pluginOptions: {
     electronBuilder: {
       nodeIntegration: true,
-      contextIsolation: false,
+      contextIsolation: true,
       preload: 'src/preload.js'
     }
   },
